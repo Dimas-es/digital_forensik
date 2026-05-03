@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Artefak runtime / ekspor lokal (akan dibuat ulang saat simulasi)
+forensic_log.txt
+hasil_serangan.json
+laporan_forensik.json
+dataset/
+
+# Tangkapan jaringan lokal (opsional)
+*.pcap
+capture_batch.pcap
