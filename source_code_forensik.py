@@ -474,10 +474,11 @@ def jalankan_serangan(port=5001):
     print(f"Memulai simulasi {n} serangan...")
     for s in SERANGAN:
         print(f"[{s['id']}/{n}] {s['nama']}...", end=" ", flush=True)
+        # timeout=None: tidak membatasi waktu tunggu respons LLM (mis. Colab CPU/GPU lambat).
         response = requests.post(
             f"http://127.0.0.1:{port}/chat",
             json={"message": s["payload"]},
-            timeout=300,
+            timeout=None,
         )
         bot_response = response.json()["response"]
         k = klasifikasi_respons(bot_response)
