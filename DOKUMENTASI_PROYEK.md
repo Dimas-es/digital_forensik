@@ -2,6 +2,8 @@
 
 Dokumen ini mendeskripsikan arsitektur, metodologi labeling, artefak keluaran, dan kontrak data untuk replikasi penelitian atau audit. Bukan panduan operasional langkah-demi-langkah untuk pengguna akhir.
 
+**Selaras judul penelitian (forensik jaringan + log + lalu lintas):** definisi cakupan, model bukti berlapis, dan playbook PCAP/HTTP ada di [METODOLOGI_FORENSIK_JARINGAN.md](METODOLOGI_FORENSIK_JARINGAN.md).
+
 ---
 
 ## 1. Cakupan dan tujuan
@@ -31,7 +33,7 @@ Setiap entri dalam `SERANGAN` memiliki minimal: `id`, `kategori`, `kelas_ancaman
 - **kategori**: label domain tingkat tinggi (mis. `ekstraksi_prompt`, `penimpangan_instruksi`) untuk agregasi laporan.
 - **kelas_ancaman**: stub taxonomi yang dapat dipetakan ke kerangka seperti OWASP LLM / MITRE ATLAS secara manual; tidak mengikat secara otomatis.
 
-Korpus saat ini (**28 entri**) dirancang agar mencakup varian: otoritas palsu, injeksi konteks, pembungkus pertanyaan “benign”, pivot bahasa, delimiter sintetis, gaya JSON/XML, dan skenario kebocoran narasi (rangkuman, “mode debug”, dll.). Detail rujukan: array `SERANGAN` pada `source_code_forensik.py`.
+Korpus saat ini (**28 entri**) dirancang agar mencakup varian: otoritas palsu, injeksi konteks, pembungkus pertanyaan “benign”, pivot bahasa, delimiter sintetis, gaya JSON/XML, dan skenario kebocoran narasi (rangkuman, “mode debug”, dll.). Detail rujukan: array `SERANGAN` pada `dataset_eksperimen.py` (diimpor oleh `source_code_forensik.py`).
 
 ---
 
@@ -64,15 +66,16 @@ Field inti setiap rekaman:
 
 - `schema_version`
 - `run_timestamp_utc`
-- `sample_id`, `attack_name`, `attack_category`, `threat_class`
+- `sample_id`, `request_id` (`uuid4` string; sama dengan respons `/chat` dan field `request_id` di `forensic_log.txt`)
+- `attack_name`, `attack_category`, `threat_class`
 - `payload` (teks masukan uji)
 - `model_response` (keluaran penuh)
 - `labels`: objek berisi flag boolean forensik
-- `metadata`: `target_app`, `model_name`, `investigator`, `dataset_confidence`
+- `metadata`: `target_app`, `model_name`, `investigator`, `dataset_confidence`, `network_evidence_hint` (teks: rekaman PCAP/access log dapat dilampirkan secara manual dan dikaitkan lewat `request_id` + waktu)
 
 ### 5.2 `injection_runs.csv`
 
-Projeksi datar dari rekaman yang sama untuk Excel / statistik ringan. Kolom `response` dapat dipotong panjangnya (`MAX_CSV_RESPONSE_CHARS`) agar sel mudah dibuka di spreadsheet.
+Projeksi datar dari rekaman yang sama untuk Excel / statistik ringan. Kolom mencakup `request_id` (korelasi log/PCAP). Kolom `response` dapat dipotong panjangnya (`MAX_CSV_RESPONSE_CHARS`) agar sel mudah dibuka di spreadsheet.
 
 ### 5.3 `dataset_manifest.json`
 
@@ -85,7 +88,7 @@ Katalog irisan: versi skema, jumlah rekaman, daftar berkas, daftar field, hash r
 | Path | Metode | Keterangan |
 |------|--------|------------|
 | `/` | GET | Antarmuka chat target + navigasi global. |
-| `/chat` | POST | JSON `{"message": "..."}` → `{"response": "..."}`. |
+| `/chat` | POST | JSON `{"message": "..."}` → `{"response": "...", "request_id": "<uuid>"}` (UUID untuk korelasi log ↔ bukti lalu lintas). |
 | `/dashboard` | GET | Agregasi visual dari `laporan_forensik.json`. |
 | `/dataset` | GET | Halaman indeks unduhan + ringkasan manifest. |
 | `/exports/<nama>` | GET | Unduhan aman untuk `injection_runs.jsonl`, `.csv`, `dataset_manifest.json` (whitelist). |
@@ -100,7 +103,7 @@ Katalog irisan: versi skema, jumlah rekaman, daftar berkas, daftar field, hash r
 |--------|-----------|
 | `hasil_serangan.json` | Hasil per-sampel mentah + label. |
 | `laporan_forensik.json` | Statistik, interpretasi, detail. |
-| `forensic_log.txt` | Log permintaan ke `/chat` (format logger). |
+| `forensic_log.txt` | Log permintaan ke `/chat` (format logger); setiap baris berisi JSON dengan `request_id`, `ip_address`, `user_agent`, `content_length`. |
 | `dataset/*` | Ekspor dataset + manifest. |
 
 ---
@@ -119,5 +122,5 @@ skenario serangan berisi muatan yang dapat bersifat ofensif atau berbahaya jika 
 
 ## 10. Versi
 
-- **Skema dataset:** `1.1` (konstanta `DATASET_SCHEMA_VERSION` dalam kode sumber).
-- Penyesuaian skema harus mem bump versi dan memperbarui paragraf 5 pada dokumen ini.
+- **Skema dataset:** `1.2` — menambah `request_id` per rekaman (JSONL/metadata) dan kolom `request_id` pada CSV; metadata berisi `network_evidence_hint`.
+- Penyesuaian skeman berikutnya harus bump `DATASET_SCHEMA_VERSION` dan memperbarui paragraf 5 pada dokumen ini.
